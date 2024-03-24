@@ -1,0 +1,92 @@
+#include <stdio.h>							
+#include <time.h>							
+#include<stdlib.h>							
+#include<string.h>							
+#pragma warning(disable:4996)							
+int sum = 0;							
+char str[128];							
+							
+							
+int addnum(int a, int b)							
+{							
+	sum = a + b;						
+	printf("두수의합은 %d\n", a + b);						
+							
+	return;						
+}							
+							
+int showt(void)							
+{							
+	time_t t;						
+							
+	time(&t);						
+	strftime(str, 128, "%Y년 %B월 %d일 %A %I시%M분%S초 %p에 기록되었습니다", localtime(&t));						
+	puts(str);						
+	printf("\n");						
+	return;						
+}							
+int main(void)							
+{							
+	int a, b, oa, ob;						
+	char date[200];						
+	char name[30];						
+	char name1[30];						
+	char filename[100];						
+							
+	printf("이름을 입력주세요:\n");						
+	scanf("%s", name);						
+	printf("이름은:%s\n", name);						
+	printf("숫자두개를 입력해주세요\n");						
+	scanf("%d\n %d", &a, &b);						
+	oa = a; ob = b;						
+							
+	for (int i = 0; i < 2; i++)						
+	{						
+		if (a < 0 || b < 0) {					
+			printf("비정상 입력입니다");				
+			return 0;				
+		}					
+	}						
+							
+	for (int j = 0; j < 4; j++)						
+	{						
+							
+		addnum(a, b);					
+		showt();					
+		a += 1;					
+		b += 1;					
+	}						
+	printf("저장하려면 암호를 입력하세요\n암호는 처음입력한 이름:\n");						
+	scanf("%s", name1);						
+	FILE* fp;						
+	fp = fopen(name, "a+");						
+	if (name[0] == name1[0] && name[1] == name1[1] && name[2] == name1[2]) {						
+		for (int j = 0; j < 4; j++)					
+		{					
+							
+			addnum(oa, ob);				
+			showt();				
+			oa += 1;				
+			ob += 1;				
+			fprintf(fp, "%d\n", sum);				
+			fprintf(fp, "%s\n", str);				
+			printf("사용자 기록이 정상처리되었습니다.\n");				
+		}					
+	}						
+	else {						
+		printf("이름이 틀렸습니다\n");					
+							
+	}						
+							
+	fclose(fp);						
+							
+							
+							
+							
+							
+							
+	return 0;						
+							
+							
+							
+}							

@@ -1,0 +1,159 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int madePid[100] = {-1,};
+int pcbNum = 0;
+
+typedef struct process {
+    int processId;
+    int priority;
+    void (*pcFunction)(int pid);
+} process;
+
+typedef struct PCB {
+    process *process;
+    int CID;
+    int CCID;
+    int PCID;
+} pcb;
+
+pcb pcbList[100];
+
+void executing(int pid);
+
+process *makeProcess() {
+    static int j = 0;
+    int i = 0;
+    int pid = rand() % 100;
+
+    while (madePid[i] != -1) {
+        if (madePid[i] == pid) {
+            pid = rand() % 100;
+            i = 0;
+        }
+        i++;
+    }
+    madePid[i] = pid;
+
+    process *temp = malloc(sizeof(process));
+    temp->processId = pid;
+    temp->priority = j++;
+    temp->pcFunction = executing;
+    return temp;
+}
+
+pcb *runProgram() {
+    pcb *temp = malloc(sizeof(pcb));
+    temp->process = makeProcess();
+    temp->CID = -1;
+    temp->CCID = -1;
+    temp->PCID = -1;
+    pcbList[pcbNum++] = *temp;
+    return &pcbList[pcbNum - 1];
+}
+
+pcb *findPcb(int pid);
+
+int fork(pcb *processBlock) {
+    if (processBlock->CID != -1 && processBlock->CCID != -1) {
+        return fork(findPcb(processBlock->CID));
+    }
+    if (processBlock->CID == -1) {
+        pcb *newPcb = malloc(sizeof(pcb));
+        newPcb->process = makeProcess();
+        newPcb->process->processId = pcbNum;
+        newPcb->PCID = processBlock->process->processId;
+        newPcb->CID = -1;
+        newPcb->CCID = -1;
+        processBlock->CID = newPcb->process->processId;
+        pcbList[pcbNum++] = *newPcb;
+        return newPcb->process->processId;
+    }
+
+    pcb *newPcb = malloc(sizeof(pcb));
+    newPcb->process = makeProcess();
+    newPcb->process->processId = pcbNum;
+    newPcb->PCID = processBlock->process->processId;
+
+    if (processBlock->CID != -1) {
+        processBlock->CCID = newPcb->process->processId;
+    } else {
+        processBlock->CID = newPcb->process->processId;
+    }
+    pcbList[pcbNum++] = *newPcb;
+
+    pcb *parentCopy = malloc(sizeof(pcb));
+    parentCopy->process = makeProcess();
+    parentCopy->process->processId = pcbNum;
+    parentCopy->PCID = processBlock->process->processId;
+    parentCopy->CID = -1;
+    parentCopy->CCID = -1;
+    pcbList[pcbNum++] = *parentCopy;
+
+    if (processBlock->CID != -1) {
+        pcb *childPcb = findPcb(processBlock->CID);
+        if (childPcb != NULL) {
+            pcb *childCopy = malloc(sizeof(pcb));
+            childCopy->process = makeProcess();
+            childCopy->process->processId = pcbNum;
+            childCopy->PCID = childPcb->process->processId;
+            childCopy->CID = -1;
+            childCopy->CCID = -1;
+            pcbList[pcbNum++] = *childCopy;
+        }
+    }
+    return newPcb->process->processId;
+}
+
+pcb *findPcb(int pid) {
+    for (int i = 0; i < pcbNum; i++) {
+        if (pcbList[i].process != NULL && pcbList[i].process->processId == pid) {
+            return &pcbList[i];
+        }
+    }
+    return NULL;
+}
+
+void executing(int pid) {
+    for (int i = 0; i < pcbNum; i++) {
+        if (pcbList[i].process != NULL && pcbList[i].process->processId == pid) {
+            printf("PID=%d, is now working\n", pid);
+            free(pcbList[i].process);
+            pcbList[i].process = NULL;
+            return;
+        }
+    }
+}
+
+int main(void) {
+    pcb *parent = runProgram();
+    printf("Parent PID: %d\n", parent->process->processId);
+
+    int childPid = fork(parent);
+    printf("Forked Child PID: %d\n", childPid);
+
+    int cchildPid = fork(findPcb(parent->process->processId));
+    printf("Forked CChild PID: %d\n", cchildPid);
+
+    int ccchildPid = fork(findPcb(parent->process->processId));
+    printf("Forked CCChild PID: %d\n", ccchildPid);
+
+    int childchildPid = fork(findPcb(parent->process->processId));
+    printf("Forked CChild PID: %d\n", childchildPid);
+
+    for (int i = 0; i < pcbNum; i++) {
+        if (pcbList[i].process != NULL) {
+            printf("PCB[%d] PID: %d\n", i, pcbList[i].process->processId);
+        } else {
+            printf("PCB[%d] PID: NULL (프로세스 종료)\n", i);
+        }
+    }
+
+    for (int i = 0; i < pcbNum; i++) {
+        if (pcbList[i].process != NULL) {
+            executing(pcbList[i].process->processId);
+        }
+    }
+
+    return 0;
+}

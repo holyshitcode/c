@@ -21,7 +21,7 @@ typedef struct PCB {
 } pcb;
 
 typedef struct Scheduler {
-    pcb *next;
+    struct Scheduler *next;
     int runningTime;
     pcb *pcb;
 }scheduler;
@@ -156,7 +156,7 @@ void clearScheduler(scheduler *root) {
         scheduler *temp = root;
         Sleep(root->runningTime * 1000);
         totalWorkingTime += root->runningTime;
-        printf("Working Time is %d seconds ToTal = %d second", root->runningTime,totalWorkingTime);
+        printf("Working Time is %d seconds ToTal = %d second\n", root->runningTime,totalWorkingTime);
         executing(root->pcb->process->processId);
         root = root->next;
         free(temp);

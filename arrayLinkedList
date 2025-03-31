@@ -1,0 +1,110 @@
+#include <stdio.h>
+#define N 10
+
+typedef struct Node {
+    int data;
+    int next;
+}node;
+
+int first;
+int available;
+
+node list[N];
+int first = -1;
+int available = 0;
+
+void avInit() {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            list[i].data = -1;
+        }
+        list[i].next = i + 1;
+        if (i == N - 1) {
+            list[i].next = -1;
+        }
+    }
+}
+
+int findPos(int data) {
+    int pre = -1;
+    int curr = first;
+    while (curr != -1 && list[curr].data < data) {
+        pre = curr;
+        curr = list[curr].next;
+    }
+    return pre;
+}
+
+
+void insert(int data) {
+    int pos = findPos(data);
+    int new = available;
+    available = list[available].next;
+    list[new].data = data;
+    list[new].next = -1;
+    if (pos == -1) {
+        list[new].next = first;
+        first = new;
+    }else {
+        list[new].next = list[pos].next;
+        list[pos].next = new;
+    }
+
+}
+
+void delete(int data) {
+    if (first == -1) {
+        return;
+    }
+
+    if (list[first].data == data) {
+        int temp = first;
+        first = list[first].next;
+        list[temp].next = available;
+        list[temp].data = -1;
+        available = temp;
+        return;
+    }
+
+
+    int pre = -1;
+    int curr = first;
+    while (curr != -1) {
+        if (list[curr].data == data) {
+            if (pre != -1) {
+                list[pre].next = list[curr].next;
+            }
+            list[curr].next = available;
+            list[curr].data = -1;
+            available = curr;
+            return;
+        }
+        pre = curr;
+        curr = list[curr].next;
+    }
+}
+
+void print() {
+    int pos = first;
+    while (pos != -1) {
+        printf("%d %d\n", list[pos].data, list[pos].next);
+        pos = list[pos].next;
+    }
+}
+int main(void)
+{
+    avInit();
+    insert(10);//0
+    insert(30);//1
+    insert(40);//2
+    insert(50);//3
+    insert(20);//4
+    insert(60);//5
+    insert(70);//6
+    delete(10);
+    insert(100);
+
+    print();
+    printf("first=%d available=%d\n",first,available);
+    return 0;
+}

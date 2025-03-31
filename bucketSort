@@ -1,0 +1,95 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct Node {
+    int data;
+    struct Node* next;
+} node;
+
+node *head[10] = {NULL};
+
+node *init(int number) {
+    node *temp = (node *)malloc(sizeof(node));
+    temp->data = number;
+    temp->next = NULL;
+    return temp;
+}
+
+int compareNum(int array[], int size) {
+    int temp = array[0];
+    for (int i = 1; i < size; i++) {
+        if (temp < array[i]) {
+            temp = array[i];
+        }
+    }
+    return temp;
+}
+
+int getPosition(int number) {
+    int result = 0;
+    while (number > 0) {
+        result++;
+        number /= 10;
+    }
+    return result;
+}
+
+void insertInList(node **target, int number) {
+    node *temp = init(number);
+    if (*target == NULL) {
+        *target = temp;
+    } else {
+        node *curr = *target;
+        while (curr->next != NULL) {
+            curr = curr->next;
+        }
+        curr->next = temp;
+    }
+}
+
+void insertInPosition(int pos, int target) {
+    int insertPos = (target / pos) % 10;
+    insertInList(&head[insertPos], target);
+}
+
+void insert(int array[], int size, int biggestNum) {
+    int count = getPosition(biggestNum);
+    int place = 1;
+    for (int i = 0; i < count; i++) {
+        for (int j = 0; j < size; j++) {
+            insertInPosition(place, array[j]);
+        }
+        int index = 0;
+        for (int k = 0; k < 10; k++) {
+            node *temp = head[k];
+            while (temp != NULL) {
+                array[index++] = temp->data;
+                node *del = temp;
+                temp = temp->next;
+                free(del);
+            }
+            head[k] = NULL;
+        }
+        place *= 10;
+    }
+}
+
+void printList(int array[], int size) {
+    for (int i = 0; i < size; i++) {
+        printf("%d ", array[i]);
+    }
+}
+
+int main(void) {
+    int *numbers, size = 0, flag = 0;
+    scanf("%d", &size);
+    numbers = (int*)malloc(size * sizeof(int));
+    for (int i = 0; i < size; i++) {
+        scanf("%d", &numbers[i]);
+    }
+    flag = compareNum(numbers, size);
+    insert(numbers, size, flag);
+    printList(numbers, size);
+    free(numbers);
+    return 0;
+}

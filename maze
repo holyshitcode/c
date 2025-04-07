@@ -1,0 +1,136 @@
+#include <stdio.h>
+#include <stdbool.h>
+
+typedef struct Stack {
+    int row;
+    int column;
+    int direction;
+}stack;
+int top = -1;
+
+stack stacks[1000];
+void push(stack target) {
+    if(top == 999) {
+        printf("Overflow\n");
+        return;
+    }
+    stacks[++top] = target;
+}
+stack pop() {
+    if(top == -1) {
+        printf("Underflow\n");
+        stack temp={-1,-1,-1};
+        return temp;
+    }
+    return stacks[top--];
+}
+
+int main(void) {
+    int maze[5][5] = {
+        {1, 1, 1, 1, 1},
+        {1, 0, 1, 0, 1},
+        {1, 0, 1, 0, 1},
+        {1, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1}
+    };
+
+    /**
+     * 0을 북쪽으로잡고 시계방향으로 작동하도록 방향설정 추후 [direction][0](행),direction[1](열) 으로쓰임
+     */
+    int move[8][2] = {{-1,0}, {-1,1}, {0,1}, {1,1},{1,0},
+        {1,-1}, {0,-1},{-1,-1} };
+
+    bool end = false;
+    int row, column, direction;
+    int nextRow, nextColumn;
+    int exitRow, exitColumn, startRow, startColumn;
+    startRow = 1;
+    startColumn = 1;
+    direction = 0;
+    exitRow = 1;
+    exitColumn = 3;
+
+    /**
+     * 마크를 전부0으로초기화함
+     */
+    int mark[5][5];
+    for(int i=0;i<5;i++) {
+        for(int j=0;j<5;j++) {
+            mark[i][j] = 0;
+        }
+    }
+    mark[startRow][startColumn] = 1;
+    stack now;
+
+    now.row = startRow;
+    now.column = startColumn;
+    now.direction = direction;
+
+    push(now);
+
+
+
+    while(top != -1 && end == false) {
+        now = pop();
+        row = now.row;
+        column = now.column;
+        direction = now.direction;
+        while (direction < 8 && end == false) {
+
+            /**
+             * move에 의한 다음경로 지정
+             */
+            nextRow = row + move[direction][0];
+            nextColumn = column + move[direction][1];
+
+            /**
+             * 종료행과 종료열이 같으면 마킹하고 트루반환후 종료
+             */
+            if(nextRow == exitRow && nextColumn == exitColumn) {
+                mark[nextRow][nextColumn] = 1;
+                end = true;
+            }
+
+            /**
+             * 다음에 향하는곳이 1이면 전진하지않고 또한 마킹이 되어있지않아야 전진
+             * 전진하게되면 전진한 자리에 마킹후에 현재 위치와 방향을++ 해서 막힌다음에 돌아올곳을 스택에넣음
+             */
+            else if(maze[nextRow][nextColumn] != 1 && mark[nextRow][nextColumn] != 1) {
+                mark[nextRow][nextColumn] = 1;
+                now.row = row;
+                now.column = column;
+                now.direction = direction;
+                push(now);
+                row = nextRow;
+                column = nextColumn;
+                direction =0;
+            }else {
+                direction++;
+            }
+        }
+
+        /**
+         * 찾으면 끝냄
+         */
+        if(end == true) {
+            printf("Maze location\n");
+            for(int i = 0; i <= top; i++) {
+                printf("%d,%d\n", stacks[i].row,stacks[i].column);
+            }
+            printf("%d,%d\n", row, column);
+            printf("%d,%d\n", exitRow, exitColumn);
+        }else {
+            printf("Maze exit no way\n");
+        }
+    }
+
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            printf("%d ", mark[i][j]);
+        }
+        printf("\n");
+    }
+
+
+
+}

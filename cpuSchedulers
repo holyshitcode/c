@@ -1,0 +1,573 @@
+#include <stdio.h>
+#include <stdlib.h>
+#define PROCESS_MAX 1000
+#define QUEUE_MAX 10
+
+
+typedef struct Process {
+    int pid;
+    int burstTime;
+    int waitTime;
+    int arrivalTime;
+    int remainingTime;
+    float responseRatio;
+    int startTime;
+    int priority;
+} process;
+
+typedef struct Queue {
+    process data[PROCESS_MAX];
+    int front;
+    int rear;
+} queue;
+
+queue mlq[QUEUE_MAX];
+
+queue *initQueue() {
+    queue *q = malloc(sizeof(queue));
+    q->front = 0;
+    q->rear = -1;
+    return q;
+}
+
+void insertQueue(queue *q, process p) {
+    if (q->rear == PROCESS_MAX - 1) {
+        printf("Queue is full\n");
+    } else {
+        q->data[++(q->rear)] = p;
+    }
+}
+
+process *deleteQueue(queue *q) {
+    if (q->front > q->rear) {
+        printf("Queue is empty\n");
+        return NULL;
+    } else {
+        return &q->data[(q->front)++];
+    }
+}
+
+void sjfSchedule(queue *q, process *p, int size) {
+    int currentTime = 0;
+    int counter = 0;
+    int totalWaitTime = 0;
+    for (int i = 0; i < size; i++) {
+        insertQueue(q, p[i]);
+    }
+    printf("\nSJF\t\t\t%-10s %-15s %-15s\n", "PID", "Burst Time", "Wait Time");
+    printf("---------------------------------------------\n");
+
+    while (q->front <= q->rear) {
+        process *proc = deleteQueue(q);
+        proc->waitTime = currentTime;
+        totalWaitTime += proc->waitTime;
+        currentTime += proc->burstTime;
+        printf("[%d]\t\t%-15d %-25d %-15d|\n",++counter, proc->pid, proc->burstTime, proc->waitTime);
+    }
+    printf("---------------------------------------------\n");
+    printf("Total WaitTime Average: %d\t\t|\n",totalWaitTime/size);
+    printf("---------------------------------------------\n");
+}
+
+void fcfsSchedule(queue *q, process *p, int size) {
+    int currentTime = 0;
+    int counter = 0;
+    int totalWaitTime = 0;
+    for (int i = 0; i < size; i++) {
+        insertQueue(q, p[i]);
+    }
+    printf("\nFCFS\t\t\t%-10s %-15s %-15s\n", "PID", "Burst Time", "Wait Time");
+    printf("---------------------------------------------\n");
+
+    while (q->front <= q->rear) {
+        process *proc = deleteQueue(q);
+        proc->waitTime = currentTime;
+        totalWaitTime += proc->waitTime;
+        currentTime += proc->burstTime;
+        printf("[%d]\t\t%-15d %-25d %-15d|\n",++counter, proc->pid, proc->burstTime, proc->waitTime);
+    }
+    printf("---------------------------------------------\n");
+    printf("Total WaitTime Average: %d\t\t|\n",totalWaitTime/size);
+    printf("---------------------------------------------\n");
+}
+
+void sortByResponseRatio(process list[], int size) {
+    for (int i = 0; i < size - 1; i++) {
+        for (int j = 0; j < size - 1 - i; j++) {
+            float rr1 = (float)(list[j].waitTime + list[j].burstTime) / list[j].burstTime;
+            float rr2 = (float)(list[j + 1].waitTime + list[j + 1].burstTime) / list[j + 1].burstTime;
+
+            if (rr1 < rr2) {
+                process temp = list[j];
+                list[j] = list[j + 1];
+                list[j + 1] = temp;
+            }
+        }
+    }
+}
+
+
+void hrnSchedule( process *p, int size) {
+    int currentTime = 0;
+    int totalWaitTime = 0;
+    int completed = 0;
+    int executed[PROCESS_MAX] = {0};
+
+    printf("\nHRN\t\t\t%-10s %-15s %-15s %-15s\n", "PID", "Burst Time", "Wait Time", "Response Ratio");
+    printf("---------------------------------------------------------------\n");
+
+    while (completed < size) {
+        process candidates[PROCESS_MAX];
+        int candidateCount = 0;
+
+        for (int i = 0; i < size; i++) {
+            if (!executed[i] && p[i].arrivalTime <= currentTime) {
+                p[i].waitTime = currentTime - p[i].arrivalTime;
+                p[i].responseRatio = (float)(p[i].waitTime + p[i].burstTime) / p[i].burstTime;
+                candidates[candidateCount++] = p[i];
+            }
+        }
+
+        if (candidateCount == 0) {
+            currentTime++;
+            continue;
+        }
+
+        sortByResponseRatio(candidates, candidateCount);
+
+        int pid = candidates[0].pid;
+
+        for (int i = 0; i < size; i++) {
+            if (p[i].pid == pid && !executed[i]) {
+                p[i].waitTime = currentTime - p[i].arrivalTime;
+                p[i].responseRatio = (float)(p[i].waitTime + p[i].burstTime) / p[i].burstTime;
+                currentTime += p[i].burstTime;
+                totalWaitTime += p[i].waitTime;
+                executed[i] = 1;
+                completed++;
+
+
+                printf("[%d]\t\t\t\t%-15d %-15d %-15d %-15.2f\n",
+                    completed, p[i].pid, p[i].burstTime,
+                    p[i].waitTime, p[i].responseRatio);
+                break;
+            }
+        }
+    }
+
+    printf("---------------------------------------------------------------\n");
+    printf("Total WaitTime Average: %d\t\t|\n", totalWaitTime / size);
+    printf("---------------------------------------------------------------\n");
+}
+
+int checkDone(int list[],int size) {
+    for (int i = 0; i < size; i++) {
+        if(list[i] == 0) return 0;
+    }
+    return 1;
+}
+
+void rrSchedule(process *p, int size, int timeSlice) {
+    int currentTime = 0;
+    int totalWaitTime = 0;
+    int completed = 0;
+
+    int remaining[PROCESS_MAX];
+    int lastExecutionTime[PROCESS_MAX];
+    for (int i = 0; i < size; i++) {
+        remaining[i] = p[i].burstTime;
+        lastExecutionTime[i] = p[i].arrivalTime;
+    }
+
+    printf("\nRR(Time Slice: %d)\t%-10s %-15s %-15s\n", timeSlice, "PID", "Burst Time", "Wait Time");
+    printf("---------------------------------------------\n");
+
+    int round = 1;
+
+    while (completed < size) {
+        printf("\n--- %d's iteration ---\n", round++);
+        int doneSomething = 0;
+
+        for (int i = 0; i < size; i++) {
+            if (remaining[i] > 0 && p[i].arrivalTime <= currentTime) {
+                doneSomething = 1;
+
+                p[i].waitTime += currentTime - lastExecutionTime[i];
+
+                int timeUsed = (remaining[i] > timeSlice) ? timeSlice : remaining[i];
+                currentTime += timeUsed;
+                remaining[i] -= timeUsed;
+                lastExecutionTime[i] = currentTime;
+
+                if (remaining[i] == 0) {
+                    completed++;
+                    totalWaitTime += p[i].waitTime;
+
+                    printf("[%d done]\t\t\t\t\t\t%-15d %-25d %-15d|\n", completed, p[i].pid, p[i].burstTime, p[i].waitTime);
+                } else {
+                    printf("PID %d execute (%d → %d)\n", p[i].pid, remaining[i] + timeUsed, remaining[i]);
+                }
+            }
+        }
+
+        if (!doneSomething) {
+            currentTime++;
+        }
+    }
+
+    printf("\n---------------------------------------------\n");
+    printf("Total WaitTime Average: %d\t\t|\n", totalWaitTime / size);
+    printf("---------------------------------------------\n");
+}
+
+void sortByRemainingTime(process *list[], int size) {
+    for (int i = 0; i < size - 1; i++) {
+        for (int j = 0; j < size - 1 - i; j++) {
+            if (list[j]->remainingTime > list[j + 1]->remainingTime) {
+                process *temp = list[j];
+                list[j] = list[j + 1];
+                list[j + 1] = temp;
+            }
+        }
+    }
+}
+
+void srtSchedule(process *p, int size) {
+    int currentTime = 0;
+    int completed = 0;
+    int totalWaitTime = 0;
+    process *readyQueue[PROCESS_MAX];
+    int readyQueueSize = 0;
+    int executed[PROCESS_MAX] = {0};
+
+    printf("\nSRT\t\t\t%-10s %-15s %-15s %-15s\n", "PID", "Burst Time", "Wait Time", "Turnaround Time");
+    printf("---------------------------------------------------------------\n");
+
+    for (int i = 0; i < size; i++) {
+        p[i].remainingTime = p[i].burstTime;
+        p[i].startTime = -1;
+        p[i].waitTime = 0;
+    }
+
+    while (completed < size) {
+
+        for (int i = 0; i < size; i++) {
+            if (!executed[i] && p[i].arrivalTime <= currentTime) {
+                readyQueue[readyQueueSize++] = &p[i];
+                executed[i] = 1;
+            }
+        }
+
+        if (readyQueueSize > 0) {
+
+            sortByRemainingTime(readyQueue, readyQueueSize);
+            process *shortest = readyQueue[0];
+
+            if (shortest->startTime == -1) {
+                shortest->startTime = currentTime;
+            }
+
+
+            shortest->remainingTime--;
+
+
+            if (shortest->remainingTime == 0) {
+                completed++;
+                shortest->waitTime = currentTime + 1 - shortest->arrivalTime - shortest->burstTime;
+                totalWaitTime += shortest->waitTime;
+                printf("[%d]\t\t\t\t%-15d %-15d %-15d %-15d\n",
+                       completed, shortest->pid, shortest->burstTime,
+                       shortest->waitTime, currentTime + 1 - shortest->arrivalTime);
+
+
+                for (int i = 0; i < readyQueueSize; i++) {
+                    if (readyQueue[i]->pid == shortest->pid) {
+                        readyQueue[i] = readyQueue[readyQueueSize - 1];
+                        readyQueueSize--;
+                        break;
+                    }
+                }
+            }
+        } else {
+            currentTime++;
+        }
+
+        currentTime++;
+    }
+
+    printf("---------------------------------------------------------------\n");
+    printf("Total WaitTime Average: %d\n", totalWaitTime / size);
+    printf("---------------------------------------------------------------\n");
+}
+
+void sortByPriority(process list[], int size) {
+    for (int i = 0; i < size - 1; i++) {
+        for (int j = 0; j < size - 1 - i; j++) {
+            if (list[j].priority > list[j + 1].priority) {
+                process temp = list[j];
+                list[j] = list[j + 1];
+                list[j + 1] = temp;
+            }
+        }
+    }
+}
+
+void prioritySchedule(queue *q, int size, process list[]) {
+    int currentTime = 0;
+    int totalWaitTime = 0;
+    int counter = 0;
+
+    for (int i = 0; i < size; i++) {
+        list[i].priority = i + 1;
+    }
+
+    sortByPriority(list, size);
+
+    for (int i = 0; i < size; i++) {
+        insertQueue(q, list[i]);
+    }
+
+    printf("\nPRIORITY\t\t\t%-10s %-15s %-15s%-15s\n", "PID", "Burst Time", "Wait Time", "Priority");
+    printf("---------------------------------------------\n");
+
+    while (q->front <= q->rear) {
+        process *proc = deleteQueue(q);
+        proc->waitTime = currentTime;
+        totalWaitTime += proc->waitTime;
+        currentTime += proc->burstTime;
+        printf("[%d]\t\t\t\t\t\t%-15d %-25d %-25d%-15d|\n", ++counter, proc->pid, proc->burstTime, proc->waitTime, proc->priority);
+    }
+
+    printf("---------------------------------------------\n");
+    printf("Total WaitTime Average: %d\t\t|\n", totalWaitTime / size);
+    printf("---------------------------------------------\n");
+}
+
+void mlqSchedule(queue **list, int queueCount, int *sizes) {
+    for (int i = 0; i < queueCount; i++) {
+        printf("\n=== Queue Level %d ===\n", i);
+        if (i == 0) {
+            rrSchedule(list[i]->data, sizes[i], 2);
+        } else if (i == 1) {
+            sjfSchedule(list[i], list[i]->data, sizes[i]);
+        } else if (i == 2) {
+            fcfsSchedule(list[i], list[i]->data, sizes[i]);
+        }
+    }
+}
+
+void processSort(process list[], int size) {
+    for (int i = 0; i < size - 1; i++) {
+        for (int j = 0; j < size - 1 - i; j++) {
+            if (list[j].burstTime > list[j + 1].burstTime) {
+                process temp = list[j];
+                list[j] = list[j + 1];
+                list[j + 1] = temp;
+            }
+        }
+    }
+}
+
+void mlfqSchedule(queue **list, int queueCount, int *sizes, int timeSlices) {
+    int completed = 0;
+    int currentTime = 0;
+    int totalWaitTime = 0;
+    int executed[PROCESS_MAX] = {0};
+
+    printf("\n=== MLFQ Scheduling ===\n");
+
+    while (completed < sizes[0] + sizes[1] + sizes[2]) { // Adjust the condition based on queue sizes
+        int doneSomething = 0;
+
+        for (int i = 0; i < queueCount; i++) {
+            int currentQueueSize = sizes[i];
+            if (currentQueueSize == 0) continue;
+
+            printf("\n--- Processing Queue Level %d ---\n", i);
+
+            if (i == 0) {
+                rrSchedule(list[i]->data, currentQueueSize, timeSlices);
+            }
+            else if (i == 1) {
+                sjfSchedule(list[i], list[i]->data, currentQueueSize);
+            }
+            else if (i == 2) {
+                fcfsSchedule(list[i], list[i]->data, currentQueueSize);
+            }
+
+            for (int j = 0; j < currentQueueSize; j++) {
+                process *proc = &list[i]->data[j];
+
+                if (!executed[proc->pid]) {
+                    doneSomething = 1;
+                    executed[proc->pid] = 1;
+                    totalWaitTime += proc->waitTime;
+                    completed++;
+                }
+            }
+        }
+
+        if (!doneSomething) {
+            currentTime++;
+        }
+    }
+
+    printf("\nTotal Wait Time Average: %d\n", totalWaitTime / (sizes[0] + sizes[1] + sizes[2]));
+}
+
+
+
+int main(void) {
+    process p1 = {1, 3, 0, 0, 3};
+    process p2 = {2, 2, 0, 1, 2};
+    process p3 = {3, 4, 0, 3, 4};
+    process p4 = {4, 8, 0, 5, 8};
+    process p5 = {5, 6, 0, 7, 6};
+    process list[PROCESS_MAX] = {p2, p4, p1, p3, p5};
+
+    process p6 = {6, 5, 0, 0, 5};
+    process p7 = {7, 2, 0, 1, 2};
+    process p8 = {8, 4, 0, 3, 4};
+    process p9 = {9, 9, 0, 5, 9};
+    process p10 = {10, 6, 0, 7, 6};
+    process list2[PROCESS_MAX] = {p6, p9, p10, p7, p8};
+
+    process p11 = {11, 3, 0, 0, 3};
+    process p12 = {12, 2, 0, 1, 2};
+    process p13 = {13, 5, 0, 3, 5};
+    process p14 = {14, 8, 0, 5, 8};
+    process p15 = {15, 6, 0, 7, 6};
+    process list3[PROCESS_MAX] = {p13, p12, p14, p15, p11};
+
+
+
+    queue *fcfs = initQueue();
+    fcfsSchedule(fcfs, list, 5);
+
+    processSort(list, 5);
+    queue *sjf = initQueue();
+    sjfSchedule(sjf, list, 5);
+
+    queue *hrn = initQueue();
+    sortByResponseRatio(list, 5);
+    hrnSchedule( list, 5);
+
+    queue *rr = initQueue();
+    rrSchedule( list, 5, 3);
+
+    srtSchedule(list, 5);
+
+    queue *priority = initQueue();
+    prioritySchedule(priority, 5, list);
+    //mlq
+    queue *q1 = initQueue();
+    queue *q2 = initQueue();
+    queue *q3 = initQueue();
+
+    process q1procs[] = {p1, p2,p7};
+    process q2procs[] = {p3, p4};
+    process q3procs[] = {p5};
+
+    for (int i = 0; i < 2; i++) insertQueue(q1, q1procs[i]);
+    for (int i = 0; i < 2; i++) insertQueue(q2, q2procs[i]);
+    for (int i = 0; i < 1; i++) insertQueue(q3, q3procs[i]);
+
+    queue *mlqs[] = {q1, q2, q3};
+    int sizes[] = {2, 2, 1};
+    mlqSchedule(mlqs, 3, sizes);
+    mlfqSchedule(mlqs, 3, sizes,2 );
+
+
+
+    return 0;
+}
+
+/**
+ * MLQ - 여러개의 큐를 다다른 스케쥴링 방식을 적용하여 우선순위로 스케쥴링하는
+ * 기법입니다. 각큐에 기존에 구현해놓은 다른 스케쥴러를 적용시켜 작동시켰습니다.
+ * 다른 스케쥴러 알고리즘에 비해서 자유도가 굉장히 높다고 느꼈습니다.
+ * 다양한 종류의  프로그램을 실행해야하는 상황에 굉장히 적합하다고 생각합니다.
+ * 각 라인에 다른 스케쥴러 정책을 적용시켜 사용할수도있고 우선순위방식도 같이 갈수도
+ * 있어서 효율적입니다.
+ * 다른 스케쥴러를 구현한후에 적용하였고 대부분 큐로 구현해놓아서 적용하기 편리했습니다.
+ */
+
+/**
+ * Priority - 프로세스에 우선순위를 부여해서 스케쥴링하는 방법
+ * 프로세스에 우선순위를 부여해 우선순위 순서대로 큐에 넣고
+ * 빼내어 실행시킵니다. 실행시간 대기시간을통해 총대기시간을 구하고
+ * 평균 대기시간을 구해냅니다. 우선순위 알고리즘은 현대 운영체제에서는
+ * 굉장히 효율적이라고 생각합니다. 후면, 전면 프로세스만해도 사용자가 원하는
+ * 우선순위를 부여해서 할당량을 높이는것이므로 사용자위주의 프로그램에서는
+ * 거의 완벽하게 원하는바를 이룰수있습니다.
+ * 우선순위 로만 정렬하면되서 구현자체는 쉬웠습니다.
+ */
+
+/**
+ * SRT - 기본적으로는 선점형으로작동하고 Cpu burstTime이 적은게 들어온다면
+ * 먼저처리하게됩니다. 이때문에 SJF의 선점형이라고도 불립니다.
+ *  선점형인것을 구현하기위해서 도착시간을 통해 중간에 들어오는 구조를 만들었습니다.
+ *  도착시간이 현재시간보다 적어질때 프로세스는 진입하게되고 레디큐에 들어가게됩니다
+ *  레디큐가 하나이상이면 잔여시간으로 정렬하게되고 저장된 순서대로 프로세스를 처리합니다
+ *  SJF에서 발생할수있는 아사현상이 오히려더 심각하게 일어날것 같습니다. Aging 기법을 필수적으로
+ *  도입해야할것같습니다. 우선적으로 처리해야하는 짧은 작업들을 자주 투입하는 또는 선점형방식이기떄문에
+ *  일부러 여러개의 태스크로 쪼개서 실행하는 그런방법으로 쓰는것이 좋을것같습니다.
+ *  구현이 SJF랑 크게다르지않아서 구조자체는 구현을 금방하였는데  선점형방식으로 처리하려다보니
+ *  도착시간에따라서 다시 정렬하는구조를 생각하는데 오래걸렸습니다.
+ */
+
+/**
+ * RR- 선점형 스케쥴링 방식으로 먼저온순서대로 정해진 타임슬라이스에의해 실행하고
+ * 다음 프로세스를 또 실행하고 반복하여 끝날때까지 번갈아가며 실행합니다.
+ * 코드에서는 최초에는 지난 실행시간을 현재시간에서 도착시간으로 설정합니다
+ * 이후에는 남은시간이있고 도착시간이 현재시간보다적은 즉 도착한 프로세스에대해서
+ * 대기시간을 현재시간-마지막에실행된 시간으로 계산해서구하고 남은시간을 줄여갑니다
+ * 슬라이스보다 작으면 남은걸전부소모하고 아니면 슬라이스만큼 소모해 결국 0이되면 완료됩니다
+ * 평균대기시간을 비교해보았을때 FCFS와 크게차이가 없는거같습니다. 별로안좋습니다
+ * 그러나 일정하게 처리해야하는 일이 있다면 다른 선점형 프로그램에 비해서는 구현이
+ * 어렵지않은거같아서 좋은것같습니다.
+ * 구현하면서 어려운점으로는 timeSlice에대해서 딱떨어지게 만드는게 좀어려웠습니다
+ * 또한 처음에는 기존에 구현되어있는 큐를 사용해서 하려고하니 원형큐를 이용하거나 큐의 크기를 키워야
+ * 반복순회가 가능해졌어서 리스트 최대크기를 통해서 반복하는것으로 바꿨습니다.
+ * 또한 선점형 스케쥴러 특성상 대기시간계산을 하는데 이전에 실행된시간기준으로
+ * 계산해야하는것에 어려움을 느꼈습니다.
+ */
+
+/**
+ * HRN- 최고로 높은 응답비율을 가진(응답비율=(대기시간+실행시간)/실행시간) 프로세스를 먼저 실행합니다.
+ * 따라서 대기시간이 길어질수록 응답비율이 높아져 SJF에서 가지는 Starvation현상을 방지합니다. 이를 Aging이라고칭하기도합니다.
+ * 현재시간을 매회차마다 갱신하여 프로세스가 도착했는지 확인합니다. 이후 도착시간이 현재시간보다 적어지면
+ * 후보군으로 리스트에 넣고 리스트에 넣어진게없다면 continue를통해서 다시 현재시간을 증가시켜 반복합니다
+ * 이때 후보가생기면 응답비율을통한 내림차순 정렬을 하는 함수를 불러 정렬하고 대기시간과 응답시간 등을 계산하여 출력한후
+ * 실행된 인덱스를 1로지정하여 초기 조건에서 후보군에 들어가지못하게하여 작동합니다.
+ * 실행시간 대기시간 도착시간 응답비율을 사용하여 HRN이 작동하는것을 보여주었고
+ * 동일 데이터를 넣고 돌려보아도 FCFS나 SJF보다는 현저히 짧은 평균 대기시간을 보여주는것으로 보아 굉장히 효율적이고
+ * 비선점이라는것만 빼면 Starvation현상도없어 매우 좋은 알고리즘인것같습니다.
+ * 평균적으로 실행시간도 길고 도착시간도 다양한 CPU상황일때에 문제없이 잘 작동하게 해줄것같습니다.
+ * 도착시간또한 고려해서 코딩하려다보니 현재시간도 갱신하고 실행했는지 안했는지를 확인해야하는 과정에서
+ * 여러가지의 변수들을 통해 체크하는것이 상당히 까다로웠고 응답비율같은 경우는 대기시간이 계속 달라지기때문에
+ * 처음에 설계할때에 그점을 잘 생각하지못해 구현에 애를 먹었습니다.
+ */
+
+/**
+ * FCFS - First Come First Served 즉 가장 먼저온것이 먼저 실행되는 스케쥴러
+ * 프로세스가 먼저도착한 순서대로 표현하기위해 도착시간을 활용하여 먼저온 순서대로 큐에
+ * insert 그후 순서대로 delete하여 구현하였습니다.
+ * 평균대기시간을 구하기위해 실행할때마다 대기시간을 구하고 대기시간을 구한후 전체로 나눠서 구했습니다
+ * 익히 알려진대로 평균대기시간은 긴축에 속하고 앞에 긴 프로세스가오면 convoy effect가 나타날수있어
+ * 사용하긴 어려운 스케쥴인거같습니다. 그러나 일괄처리작업을 할때에는 구현이 굉장히 간편하고 좋다고생각합니다.
+ * 장점에서와같이 굉장히 쉬운 구조로 구현하면서 어려운점은 없었습니다.
+/**
+ * SJF - Shortest Job First 즉 가장 BurstTime이 짧은 프로세스를 먼저실행하는 스케쥴러
+ * process구조체로 프로세스가 지닌 실행시간,대기시간,도착시간,프로세스번호,남은시간 을 표현하고
+ * 큐를 매개체로 사용하여 가장짧은 BurstTime을 지닌 프로세스를 찾아 큐에 Insert하여 후에 큐의크기만큼
+ * Delete하는 방식으로 순서를 보장했습니다.
+ * 비선점 방식으로 구현하여 나름 아사현상은 없을거라 예상하지만 프로세스의 수가 많아지면 어쩔수없이 생기는 문제가
+ * 될것으로 예상됩니다. 구현한 세개의 알고리즘중에 가장 구현하기 편하고 쉬웠으나 아쉬운점은 아사현상인거같습니다.
+ * 그러나 사용업무가 단순하고 빠른 결과를 원한다면 적합한 알고리즘이 될것같습니다.
+ * 겪은문제- 스택과 큐중에서 자료구조를 고민하였는데 스케쥴링 특성상 스택이 직관적이지 않아서 큐를 선택하게되었습니다.
+ * 또한 평균대기시간을 계산하기위해 대기시간을 계산하려할때 큐에서 delete하면서 burstTime을 증가시키려고 하였는데
+ * 이과정에서 누적계산하는게 적합하지않다고 판단하여 스케쥴링을 할떄에 변수를두어 발생한 대기시간을 더했습니다.
+ * 마지막으로 하나의 프로그램안에서 선점형과 비선점 둘다 구현하려고 하다보니 process구조체에 적절히 필요한항목을 고민했습니다.
+ */
+

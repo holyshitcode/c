@@ -1,0 +1,96 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int insert_sort(int *array, int size, int left, int right) {
+
+    if (size != right - left + 1) {
+        return -1;
+    }
+
+    for (register int i = left + 1; i <= right; i++) {
+        int target = array[i];
+        int j = i - 1;
+        while (j >= left && array[j] > target) {
+            array[j + 1] = array[j];
+            j--;
+        }
+        array[j + 1] = target;
+    }
+
+    return 0;
+}
+
+int get_median_quick_sort_partition(int *array, int size, int left, int right) {
+
+    if (size != right - left + 1) {
+        return -1;
+    }
+    
+    int median = -1;
+    int small_portion_insert_position = left + 1;
+    int pivot = array[left];
+    int temp;
+
+    for (register int i = left + 1; i <= right; i++) {
+        if (array[i] < pivot) {
+            temp = array[i];
+            array[i] = array[small_portion_insert_position];
+            array[small_portion_insert_position] = temp;
+            small_portion_insert_position++;
+        }
+    }
+
+    median = small_portion_insert_position - 1;
+
+    array[left] = array[median];
+    array[median] = pivot;
+
+
+
+    return median;
+}
+
+int quick_sort(int *array, int size, int left, int right) {
+    if (size != right - left + 1) {
+        return -1;
+    }
+
+    if (size <= 20) {
+        insert_sort(array, size, left, right);
+        return 0;
+    }
+
+    if (left < right) {
+        int median = get_median_quick_sort_partition(array, size, left, right);
+        quick_sort(array, median - left, left, median - 1);
+        quick_sort(array, right - median, median + 1, right);
+    }
+
+    return 0;
+}
+
+int main(void) {
+    int numbers[531];
+    for (register int i = 0; i < 531; i++) {
+        numbers[i] = 530 + rand() % (1000 - 530);
+    }
+
+    printf("------------------------------------------------Before sorting----------------------------------------------------------\n");
+    for (register int i = 0; i < 531; i++) {
+        printf("%d ", numbers[i]);
+    }
+    printf("\n");
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+
+
+    quick_sort(numbers, 531, 0, 530);
+
+    printf("------------------------------------------------After sorting-----------------------------------------------------------\n");
+    for (register int i = 0; i < 531; i++) {
+        printf("%d ", numbers[i]);
+    }
+    printf("\n");
+    printf("------------------------------------------------------------------------------------------------------------------------\n");
+
+    return 0;
+}

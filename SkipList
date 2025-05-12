@@ -1,0 +1,186 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+
+#define MAX_LEVEL 4
+
+struct Node {
+    int key;
+    struct Node **height;
+};
+
+struct Skip_List {
+    int level;
+    struct Node *head;
+};
+
+
+struct Node *create_node(int level, int key) {
+    struct Node *new_node = (struct Node *)malloc(sizeof(struct Node));
+    if (!new_node) {
+        printf("Memory allocation failed for new node\n");
+        exit(EXIT_FAILURE);
+    }
+
+    new_node->key = key;
+    new_node->height = (struct Node **)malloc(sizeof(struct Node *) * (level + 1));
+    if (!new_node->height) {
+        printf("Memory allocation failed for height array\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i <= level; i++) {
+        new_node->height[i] = NULL;
+    }
+
+    return new_node;
+}
+
+struct Skip_List *create_skip_list() {
+    struct Skip_List *skip_list = (struct Skip_List *)malloc(sizeof(struct Skip_List));
+
+    if (!skip_list) {
+        printf("Memory allocation failed for skip list\n");
+        exit(EXIT_FAILURE);
+    }
+
+    skip_list->level = 0;
+    skip_list->head = create_node(MAX_LEVEL, INT_MIN);
+    return skip_list;
+}
+
+int random_level() {
+    int level = 0;
+    while (rand() % 2 && level < MAX_LEVEL) {
+        level++;
+    }
+    return level;
+}
+
+void insert_key(struct Skip_List *sl, int key) {
+    struct Node *update[MAX_LEVEL + 1]; //업데이트 할 노드위치
+    struct Node *head = sl->head; //스킵리스트 헤드
+
+    /*
+     *  비어있지않고 현재노드의 레벨 i의 키가 키보다 크면 update[level]에 현재노드저장
+     */
+    for (int i = sl->level; i >= 0; i--) {
+        while (head->height[i] && head->height[i]->key < key) {
+            head = head->height[i];
+        }
+        update[i] = head;
+    }
+    //추가하는 위치의 전노드의 직후노드 즉 추가될위치의 노드가 같은지확인
+    head = update[0]->height[0];
+
+    if (head == NULL || head->key != key) {
+        int level = random_level();
+        if (level > sl->level) {
+            for (int i = sl->level + 1; i <= level; i++) {
+                update[i] = sl->head;
+            }
+            sl->level = level;
+        }
+
+        struct Node *new_node = create_node(level, key);
+
+        for (int i = 0; i <= level; i++) {
+            new_node->height[i] = update[i]->height[i];
+            update[i]->height[i] = new_node;
+        }
+    }
+}
+
+struct Node* search(struct Skip_List *list, int key) {
+    struct Node* currentNode = list->head;
+
+    for (int level = list->level - 1; level >= 0; level--) {
+        // 현재 레벨에서 key보다 작은 값들이 나올 때까지 forward를 따라갑니다.
+        while (currentNode->height[level] != NULL && currentNode->height[level]->key < key) {
+            currentNode = currentNode->height[level];
+        }
+    }
+
+    // 가장 마지막 레벨에서, key가 있는지 확인합니다.
+    currentNode = currentNode->height[0];
+    if (currentNode != NULL && currentNode->key == key) {
+        return currentNode;  // key를 찾았으면 해당 노드를 반환
+    }
+    return NULL;  // key를 찾지 못했으면 NULL 반환
+}
+
+void deleteNode(struct Skip_List *list, int key) {
+    struct Node* currentNode = list->head;
+    struct Node* update[list->level];
+
+    // 각 레벨에서 삭제할 노드의 이전 노드를 찾는다
+    for (int level = list->level - 1; level >= 0; level--) {
+        while (currentNode->height[level] != NULL && currentNode->height[level]->key < key) {
+            currentNode = currentNode->height[level];
+        }
+        update[level] = currentNode;  // 각 레벨에서 이전 노드를 기록
+    }
+
+    // 0레벨에서 실제 노드를 삭제할 위치 확인
+    currentNode = currentNode->height[0];
+
+    // 노드를 찾았다면 삭제
+    if (currentNode != NULL && currentNode->key == key) {
+        for (int level = 0; level < list->level; level++) {
+            if (update[level]->height[level] != currentNode) {
+                break;
+            }
+            update[level]->height[level] = currentNode->height[level];  // 포인터 수정
+        }
+
+        // 레벨이 줄어들었을 경우, 스킵 리스트의 최고 레벨을 조정
+        while (list->level > 1 && list->head->height[list->level - 1] == NULL) {
+            list->level--;
+        }
+
+        free(currentNode);  // 실제 노드 삭제
+    }
+}
+
+
+void printSkipList(struct Skip_List *sl) {
+    printf("\n=== Skip List ===\n");
+    for (int i = sl->level; i >= 0; i--) {
+        struct Node *x = sl->head->height[i];
+        printf("Level %d: ", i);
+        while (x != NULL) {
+            printf("%d ", x->key);
+            x = x->height[i];
+        }
+        printf("\n");
+    }
+}
+
+int main(void) {
+    srand(100);
+
+    struct Skip_List *sl = create_skip_list();
+
+    int keys[] = {3, 6, 7, 9, 12, 15, 19};
+    int size = sizeof(keys) / sizeof(keys[0]);
+
+    for (int i = 0; i < size; i++) {
+        printf("\nInserting %d...\n", keys[i]);
+        insert_key(sl, keys[i]);
+        printSkipList(sl);
+    }
+
+    printf("\nDeleting 7...\n");
+    deleteNode(sl, 7);
+    printSkipList(sl);
+
+    printf("\nDeleting 3...\n");
+    deleteNode(sl, 3);
+    printSkipList(sl);
+
+    printf("\nDeleting 15...\n");
+    deleteNode(sl, 15);
+    printSkipList(sl);
+
+    return 0;
+}
